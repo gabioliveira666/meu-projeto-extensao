@@ -1,151 +1,210 @@
-// content.js — versão simplificada e funcional
+// content.js — versão com proteção de domínio corrigida
 
-// === LIMPEZA FORÇADA DE RESÍDUOS ===
+(() => {
+  const dominioAtual = window.location.hostname;
+  const dominiosBloqueados = [
+    "google.",
+    "gstatic.com",
+    "youtube.com",
+    "accounts.google.com"
+  ];
+
+  if (dominiosBloqueados.some(d => dominioAtual.includes(d))) {
+    console.log("Extensão desativada neste site por segurança:", dominioAtual);
+    return; // agora é permitido dentro da função
+  }
+
+  // Pequeno helper para logs
+  function log(...args) {
+    try { console.log("[neuroplugin content]", ...args); } catch (e) {}
+  }
+
+// === LIMPEZA (segura) ===
 function limparResiduos() {
-  // Remove spans e marcas antigos
-  document.querySelectorAll('span, mark, .highlight').forEach(el => {
-    const parent = el.parentNode;
-    if(parent) parent.replaceChild(document.createTextNode(el.textContent), el);
-  });
+  try {
+    // Remove apenas elementos que tenham sido marcados pela extensão (defensive)
+    document.querySelectorAll('[data-neuro-text], mark.neuro-highlight').forEach(el => {
+      const parent = el.parentNode;
+      if (parent) parent.replaceChild(document.createTextNode(el.textContent), el);
+    });
 
-  // Remove atributos residuais
-  document.querySelectorAll('[data-original-text]').forEach(el => el.removeAttribute('data-original-text'));
+    // Remove atributos residuais criados pela extensão
+    document.querySelectorAll('[data-original-text]').forEach(el => el.removeAttribute('data-original-text'));
 
-  // CSS global para zerar seleção
-  let style = document.getElementById('limpar-destaque');
-  if(style) style.remove();
-  style = document.createElement('style');
-  style.id = 'limpar-destaque';
-  style.textContent = `
-    ::selection { background: transparent !important; color: inherit !important; }
-    mark, .highlight { background: transparent !important; color: inherit !important; }
-  `;
-  document.head.appendChild(style);
+    // Remove estilo temporário de seleção se existir
+    document.getElementById('limpar-destaque')?.remove();
+    const style = document.createElement('style');
+    style.id = 'limpar-destaque';
+    style.textContent = `
+      ::selection { background: transparent !important; color: inherit !important; }
+      mark.neuro-highlight { background: transparent !important; color: inherit !important; }
+    `;
+    document.head.appendChild(style);
+  } catch (e) {
+    console.warn("limparResiduos falhou:", e);
+  }
 }
 
-// === MODO FOCUS/LEITURA ===
+// === MODO Foco/Leitura ===
 function aplicarModoFoco() {
   removerModoFoco();
-
-  const style = document.createElement('style');
-  style.id = 'modo-foco';
-  style.textContent = `
-    /* Aplica apenas ao texto */
-    p, li, h1, h2, h3, h4, h5, h6, span {
-      transition: color 0.2s ease;
-    }
-
-    p:hover, li:hover, h1:hover, h2:hover, h3:hover, h4:hover, h5:hover, h6:hover, span:hover {
-      color: #b58900 !important; /* amarelo escuro para destaque das letras */
-      background-color: transparent !important;
-    }
-
-    /* Garante que os filhos não sobrescrevam */
-    p *:hover, li *:hover, span *:hover {
-      color: inherit !important;
-    }
-  `;
-  document.head.appendChild(style);
+  try {
+    const style = document.createElement('style');
+    style.id = 'modo-foco';
+    style.textContent = `
+      /* destacar apenas a cor do texto dos blocos textuais (sem colorir fundo) */
+      p, li, article, section, h1, h2, h3, h4, h5, h6 {
+        transition: color 0.15s ease;
+      }
+      p:hover, li:hover, article:hover, section:hover, h1:hover, h2:hover, h3:hover {
+        color: #b58900 !important;
+        background-color: transparent !important;
+      }
+      /* evitar que filhos invertam o efeito */
+      p *:hover, li *:hover, article *:hover, section *:hover {
+        color: inherit !important;
+      }
+    `;
+    document.head.appendChild(style);
+    log("Modo Foco aplicado");
+  } catch (e) { console.warn("aplicarModoFoco erro:", e); }
 }
-
 function removerModoFoco() {
   document.getElementById('modo-foco')?.remove();
 }
 
 // === MODO ESPAÇADO ===
 function aplicarModoEspacado() {
-  document.body.style.letterSpacing = "0.1em";
-  document.body.style.lineHeight = "1.8em";
+  try {
+    document.documentElement.style.setProperty("letter-spacing", "0.1em", "important");
+    document.documentElement.style.setProperty("line-height", "1.8", "important");
+    log("Modo Espaçado aplicado");
+  } catch (e) { console.warn("aplicarModoEspacado erro:", e); }
 }
 function removerModoEspacado() {
-  document.body.style.letterSpacing = "";
-  document.body.style.lineHeight = "";
+  document.documentElement.style.removeProperty("letter-spacing");
+  document.documentElement.style.removeProperty("line-height");
 }
 
 // === MODO SIMPLIFICADO ===
 function aplicarModoSimplificado() {
   removerModoSimplificado();
-
-  const style = document.createElement('style');
-  style.id = 'modo-simplificado';
-  style.textContent = `
-    * {
-      font-family: Arial, Verdana, sans-serif !important;
-      font-size: 1.1em !important;
-      line-height: 1.6 !important;
-      background: #ffffff !important;
-      color: #000000 !important;
-      box-shadow: none !important;
-      text-shadow: none !important;
-      border: none !important;
-    }
-
-    img, video, iframe, svg, canvas {
-      display: none !important;
-    }
-
-    a {
-      color: #0033cc !important;
-      text-decoration: underline !important;
-    }
-
-    body {
-      background: #ffffff !important;
-    }
-  `;
-  document.head.appendChild(style);
+  try {
+    const style = document.createElement('style');
+    style.id = 'modo-simplificado';
+    style.textContent = `
+      /* Força fonte simples e cores neutras em elementos textuais */
+      body, body * {
+        font-family: Arial, Verdana, sans-serif !important;
+        color: #000 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+      /* Ajustes de leitura */
+      p, li, article, section, h1, h2, h3 {
+        font-size: 1.05em !important;
+        line-height: 1.6 !important;
+      }
+      /* Oculta mídia para foco no texto (opcional) */
+      img, video, iframe, svg, canvas {
+        display: none !important;
+      }
+      body {
+        background: #fff !important;
+      }
+      a { color: #0033cc !important; text-decoration: underline !important; }
+    `;
+    document.head.appendChild(style);
+    log("Modo Simplificado aplicado");
+  } catch (e) { console.warn("aplicarModoSimplificado erro:", e); }
 }
-
 function removerModoSimplificado() {
   document.getElementById('modo-simplificado')?.remove();
 }
 
-// === FILTROS DE DALTONISMO (corrigidos e calibrados) ===
+// === FILTROS DE DALTONISMO ===
 function aplicarFiltroDaltonismo(tipo) {
-  let matrix = "";
+  try {
+    let matrix = "";
+    if (tipo === "protanomalia") {
+      matrix = "0.817 0.183 0 0 0, 0.333 0.667 0 0 0, 0 0.125 0.875 0 0, 0 0 0 1 0";
+    } else if (tipo === "deuteranomalia") {
+      matrix = "0.8 0.2 0 0 0, 0.258 0.742 0 0 0, 0 0.142 0.858 0 0, 0 0 0 1 0";
+    } else if (tipo === "tritanomalia") {
+      matrix = "0.967 0.033 0 0 0, 0 0.733 0.267 0 0, 0 0.183 0.817 0 0, 0 0 0 1 0";
+    } else {
+      matrix = "";
+    }
 
-  if (tipo === "protanomalia") {
-    // Dificuldade em perceber o vermelho
-    matrix = "0.817 0.183 0 0 0, 0.333 0.667 0 0 0, 0 0.125 0.875 0 0, 0 0 0 1 0";
-  } 
-  else if (tipo === "deuteranomalia") {
-    // Dificuldade em perceber o verde
-    matrix = "0.8 0.2 0 0 0, 0.258 0.742 0 0 0, 0 0.142 0.858 0 0, 0 0 0 1 0";
-  } 
-  else if (tipo === "tritanomalia") {
-    // Dificuldade em perceber o azul
-    matrix = "0.967 0.033 0 0 0, 0 0.733 0.267 0 0, 0 0.183 0.817 0 0, 0 0 0 1 0";
+    if (matrix) {
+      document.documentElement.style.filter = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"><filter id="daltonismo"><feColorMatrix type="matrix" values="${matrix}"/></filter></svg>#daltonismo')`;
+      log("Filtro de daltonismo aplicado:", tipo);
+    }
+  } catch (e) {
+    console.warn("aplicarFiltroDaltonismo erro:", e);
+  }
+}
+function removerFiltrosDaltonismo() {
+  try {
+    document.documentElement.style.filter = "";
+  } catch (e) { console.warn("removerFiltrosDaltonismo erro:", e); }
+}
+
+// === APLICAÇÃO GLOBAL DE ESTILOS (robusta) ===
+function aplicarEstilos(data) {
+  log("aplicarEstilos chamado com:", data);
+  // limpar resíduos de elementos que a extensão mesma pode ter criado
+  try { limparResiduos(); } catch (e) { console.warn("limparResiduos falhou:", e); }
+
+  // Se user explicitamente desativou: remove tudo e retorna
+  if (data && data.extensaoAtiva === false) {
+    log("Extensão explicitamente desativada pelo usuário.");
+    removerModoFoco();
+    removerModoEspacado();
+    removerModoSimplificado();
+    removerFiltrosDaltonismo();
+    return;
   }
 
-  // Aplica o filtro SVG diretamente no documento
-  document.documentElement.style.filter = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"><filter id="daltonismo"><feColorMatrix type="matrix" values="${matrix}"/></filter></svg>#daltonismo')`;
-}
+  // Se data for undefined, consideramos os modos desligados por padrão,
+  // mas a extensão como um todo pode estar ativa (controle via extensaoAtiva).
+  const modoFocoOn = !!(data && data.modoFoco);
+  const modoEspacadoOn = !!(data && data.modoEspacado);
+  const modoSimplificadoOn = !!(data && data.modoSimplificado);
 
-function removerFiltrosDaltonismo() {
-  document.documentElement.style.filter = "";
-}
+  if (modoFocoOn) aplicarModoFoco(); else removerModoFoco();
+  if (modoEspacadoOn) aplicarModoEspacado(); else removerModoEspacado();
+  if (modoSimplificadoOn) aplicarModoSimplificado(); else removerModoSimplificado();
 
-// === APLICAÇÃO GERAL DE ESTILOS ===
-function aplicarEstilos(data) {
-  limparResiduos(); // limpa antes de aplicar novos modos
-  if(!data.extensaoAtiva) return;
-
-  data.modoFoco ? aplicarModoFoco() : removerModoFoco();
-  data.modoEspacado ? aplicarModoEspacado() : removerModoEspacado();
-  data.modoSimplificado ? aplicarModoSimplificado() : removerModoSimplificado();
-
+  // Daltonismo: limpa e aplica se necessário
   removerFiltrosDaltonismo();
-  if(data.protanomalia) aplicarFiltroDaltonismo("protanomalia");
-  if(data.deuteranomalia) aplicarFiltroDaltonismo("deuteranomalia");
-  if(data.tritanomalia) aplicarFiltroDaltonismo("tritanomalia");
+  if (data && data.protanomalia) aplicarFiltroDaltonismo("protanomalia");
+  if (data && data.deuteranomalia) aplicarFiltroDaltonismo("deuteranomalia");
+  if (data && data.tritanomalia) aplicarFiltroDaltonismo("tritanomalia");
 }
 
 // === RECEBE MENSAGENS DO POPUP ===
 chrome.runtime.onMessage.addListener((msg) => {
-  if(msg.action === "atualizarEstilo") {
-    chrome.storage.sync.get(null, (data) => aplicarEstilos(data));
+  if (msg && msg.action === "atualizarEstilo") {
+    chrome.storage.sync.get(null, (data) => {
+      try { aplicarEstilos(data); } catch (e) { console.warn("aplicarEstilos erro:", e); }
+    });
   }
 });
 
-// === EXECUTA AO CARREGAR ===
-chrome.storage.sync.get(null, (data) => aplicarEstilos(data));
+// === REAGE A MUDANÇAS DIRETAS NO STORAGE (caso o popup use set sem enviar mensagem) ===
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "sync") return;
+  // obter o estado atual completo e reaplicar
+  chrome.storage.sync.get(null, (data) => {
+    try { aplicarEstilos(data); } catch (e) { console.warn("aplicarEstilos erro (onChanged):", e); }
+  });
+});
+
+// === EXECUTA AO CARREGAR (estado inicial) ===
+chrome.storage.sync.get(null, (data) => {
+  try { aplicarEstilos(data); } catch (e) { console.warn("aplicarEstilos erro (startup):", e); }
+});
+
+})();
